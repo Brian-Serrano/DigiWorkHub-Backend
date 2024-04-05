@@ -28,6 +28,8 @@ class Task(db.Model):
 class TaskComment(db.Model):
     comment_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     description = db.Column(db.String, nullable=False, default="TestCommentMessage")
+    reply_id = db.Column(db.String, nullable=False, default="")
+    mentions_id = db.Column(db.String, nullable=False, default="")
     user_id = db.Column(db.Integer, nullable=False, default=0)
     task_id = db.Column(db.Integer, nullable=False, default=0)
     date_sent = db.Column(db.DateTime, nullable=False, default=datetime.now())
@@ -73,3 +75,17 @@ class Message(db.Model):
     description = db.Column(db.String, nullable=False, default="TestMessageDesc")
     sender_id = db.Column(db.Integer, nullable=False, default=0)
     receiver_id = db.Column(db.Integer, nullable=False, default=0)
+    attachment_paths = db.Column(db.String, nullable=False, default="")
+    file_names = db.Column(db.String, nullable=False, default="")
+    deleted_from_sender = db.Column(db.Boolean, nullable=False, default=False)
+    deleted_from_receiver = db.Column(db.Boolean, nullable=False, default=False)
+
+
+class MessageReply(db.Model):
+    message_reply_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    message_id = db.Column(db.Integer, nullable=False, default=0)
+    date_sent = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    description = db.Column(db.String, nullable=False, default="TestMessageDesc")
+    from_id = db.Column(db.Integer, nullable=False, default=0)
+    attachment_paths = db.Column(db.String, nullable=False, default="")
+    file_names = db.Column(db.String, nullable=False, default="")

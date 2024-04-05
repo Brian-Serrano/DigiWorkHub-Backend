@@ -5,29 +5,38 @@ from datetime import datetime
 
 import bcrypt
 from PIL import Image
+from werkzeug.utils import secure_filename
 
-from config import EMAIL_REGEX, PASSWORD_REGEX, NAME_REGEX
+from config import EMAIL_REGEX, PASSWORD_REGEX, NAME_REGEX, ALLOWED_FILE_EXTENSIONS
 from db import User
 
 
 def remove_item_from_stringed_list(stringed_list, item):
     lst = string_to_int_list(stringed_list)
     lst.remove(item)
-    return list_to_string(lst)
+    return int_list_to_string(lst)
 
 
 def add_item_from_stringed_list(stringed_list, item):
     lst = string_to_int_list(stringed_list)
     lst.append(item)
-    return list_to_string(lst)
+    return int_list_to_string(lst)
 
 
 def string_to_int_list(string):
-    return [*map(lambda x: int(x), string.split(','))] if string else []
+    return [int(x) for x in string.split(',')] if string else []
+
+
+def int_list_to_string(lst):
+    return ','.join([str(x) for x in lst])
+
+
+def string_to_list(string):
+    return string.split('|') if string else []
 
 
 def list_to_string(lst):
-    return ','.join([*map(lambda x: str(x), lst)])
+    return '|'.join(lst)
 
 
 def date_to_string(date):
@@ -87,13 +96,17 @@ def validate_task(title, description, due, assignees):
     return {"isValid": True, "message": "Success"}
 
 
-def validate_message(title, description):
+def validate_message(title, description, files):
     if not title or not description:
         return {"isValid": False, "message": "Name and description should not be empty"}
     if not 15 <= len(title) <= 100:
         return {"isValid": False, "message": "Name should be 15-100 characters"}
     if not 50 <= len(description) <= 3000:
         return {"isValid": False, "message": "Description should be 50-3000 characters"}
+    if not all(file and allowed_file(file.filename, ALLOWED_FILE_EXTENSIONS) for file in files):
+        return {"isValid": False, "message": "The file type is not allowed"}
+    if len(files) > 5:
+        return {"isValid": False, "message": "You can only upload up to 5 files"}
 
     return {"isValid": True, "message": "Success"}
 
@@ -181,6 +194,17 @@ def validate_user_role(role):
     return {"isValid": True, "message": "Success"}
 
 
+def validate_reply(description, files):
+    if not description or not 10 <= len(description) <= 500:
+        return {"isValid": False, "message": "Description should be 10-500 characters"}
+    if not all(file and allowed_file(file.filename, ALLOWED_FILE_EXTENSIONS) for file in files):
+        return {"isValid": False, "message": "The file type is not allowed"}
+    if len(files) > 5:
+        return {"isValid": False, "message": "You can only upload up to 5 files"}
+
+    return {"isValid": True, "message": "Success"}
+
+
 def map_tasks(task):
     assignee_ids = string_to_int_list(task.assignee)
     return {
@@ -217,7 +241,10 @@ def map_received_messages(message):
 def map_comments(comment):
     return {
         "commentId": comment.comment_id,
+        "taskId": comment.task_id,
         "description": comment.description,
+        "replyId": string_to_int_list(comment.reply_id),
+        "mentionsName": [User.query.filter_by(id=x).first().name for x in string_to_int_list(comment.mentions_id)],
         "user": map_user(comment.user_id),
         "sentDate": date_to_string(comment.date_sent),
         "likesId": string_to_int_list(comment.likes_id)
@@ -228,6 +255,7 @@ def map_subtasks(subtask):
     assignee_ids = string_to_int_list(subtask.assignee)
     return {
         "subtaskId": subtask.subtask_id,
+        "taskId": subtask.task_id,
         "description": subtask.description,
         "due": date_to_string(subtask.due),
         "priority": subtask.priority,
@@ -242,6 +270,7 @@ def map_checklists(checklist):
     assignee_ids = string_to_int_list(checklist.assignee)
     return {
         "checklistId": checklist.checklist_id,
+        "taskId": checklist.task_id,
         "user": map_user(checklist.user_id),
         "description": checklist.description,
         "isChecked": checklist.is_checked,
@@ -252,10 +281,24 @@ def map_checklists(checklist):
 
 def map_attachments(attachment):
     return {
+        "attachmentId": attachment.attachment_id,
+        "taskId": attachment.task_id,
         "user": map_user(attachment.user_id),
         "attachmentPath": attachment.attachment_path,
         "fileName": attachment.file_name,
         "sentDate": date_to_string(attachment.date_sent)
+    }
+
+
+def map_replies(reply):
+    return {
+        "messageReplyId": reply.message_reply_id,
+        "messageId": reply.message_id,
+        "sentDate": date_to_string(reply.date_sent),
+        "description": reply.description,
+        "fromId": reply.from_id,
+        "attachmentPaths": string_to_list(reply.attachment_paths),
+        "fileNames": string_to_list(reply.file_names)
     }
 
 
@@ -269,6 +312,10 @@ def get_response_image(image_path):
 
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+
+def filename_secure(file, idx=""):
+    return secure_filename(datetime.now().strftime("%d_%m_%Y_%H_%M_%S") + idx + '.' + file.filename.rsplit('.', 1)[1])
 
 
 def map_user(user_id):
