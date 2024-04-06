@@ -15,7 +15,7 @@ message_bp = Blueprint("message_routes", __name__)
 
 @message_bp.route("/message_user", methods=["POST"])
 @auth_required
-def message_user(user):
+def message_user(current_user):
     try:
         data = json.loads(request.form["messageBody"])
         files = request.files.getlist("file")
@@ -31,7 +31,7 @@ def message_user(user):
                 file_names.append(file.filename)
 
             new_message = Message(
-                sender_id=user["id"],
+                sender_id=current_user["id"],
                 receiver_id=data["receiverId"],
                 title=data["title"],
                 description=data["description"],
@@ -50,7 +50,7 @@ def message_user(user):
 
 @message_bp.route("/reply_to_message", methods=["POST"])
 @auth_required
-def reply_to_message(user):
+def reply_to_message(current_user):
     try:
         data = json.loads(request.form["replyBody"])
         files = request.files.getlist("file")
@@ -68,7 +68,7 @@ def reply_to_message(user):
             new_reply = MessageReply(
                 message_id=data["messageId"],
                 description=data["description"],
-                from_id=user["id"],
+                from_id=current_user["id"],
                 attachment_paths=list_to_string(attachment_paths),
                 file_names=list_to_string(file_names)
             )
@@ -89,9 +89,9 @@ def reply_to_message(user):
 
 @message_bp.route("/get_sent_messages", methods=["GET"])
 @auth_required
-def get_sent_messages(user):
+def get_sent_messages(current_user):
     try:
-        messages = Message.query.filter_by(sender_id=user["id"], deleted_from_sender=False).order_by(desc(Message.date_sent)).all()
+        messages = Message.query.filter_by(sender_id=current_user["id"], deleted_from_sender=False).order_by(desc(Message.date_sent)).all()
         return jsonify([map_sent_messages(x) for x in messages]), 200
     except Exception as e:
         return jsonify({"error": f"Unhandled exception: {e}"}), 500
@@ -99,9 +99,9 @@ def get_sent_messages(user):
 
 @message_bp.route("/get_received_messages", methods=["GET"])
 @auth_required
-def get_received_messages(user):
+def get_received_messages(current_user):
     try:
-        messages = Message.query.filter_by(receiver_id=user["id"], deleted_from_receiver=False).order_by(desc(Message.date_sent)).all()
+        messages = Message.query.filter_by(receiver_id=current_user["id"], deleted_from_receiver=False).order_by(desc(Message.date_sent)).all()
         return jsonify([map_received_messages(x) for x in messages]), 200
     except Exception as e:
         return jsonify({"error": f"Unhandled exception: {e}"}), 500
@@ -109,16 +109,16 @@ def get_received_messages(user):
 
 @message_bp.route("/get_message", methods=["GET"])
 @auth_required
-def get_message(user):
+def get_message(current_user):
     try:
         message_id = request.args.get("message_id")
         message = Message.query.filter_by(message_id=message_id).first()
         message_replies = MessageReply.query.filter_by(message_id=message_id).all()
 
-        if message.sender_id == user["id"] and message.deleted_from_sender:
+        if message.sender_id == current_user["id"] and message.deleted_from_sender:
             return jsonify({"type": "Validation Error", "message": "Unable to view the message."}), 400
 
-        if message.receiver_id == user["id"] and message.deleted_from_receiver:
+        if message.receiver_id == current_user["id"] and message.deleted_from_receiver:
             return jsonify({"type": "Validation Error", "message": "Unable to view the message."}), 400
 
         response = {
@@ -139,11 +139,11 @@ def get_message(user):
 
 @message_bp.route("/delete_message", methods=["DELETE"])
 @auth_required
-def delete_message(user):
+def delete_message(current_user):
     try:
         message_id = request.args.get("message_id")
         message_to_delete = Message.query.filter_by(message_id=message_id).first()
-        if user["id"] == message_to_delete.sender_id:
+        if current_user["id"] == message_to_delete.sender_id:
             db.session.delete(message_to_delete)
             replies_to_delete = MessageReply.query.filter_by(message_id=message_id).all()
 
@@ -168,10 +168,10 @@ def delete_message(user):
 
 @message_bp.route("/delete_message_reply", methods=["DELETE"])
 @auth_required
-def delete_message_reply(user):
+def delete_message_reply(current_user):
     try:
         reply_to_delete = MessageReply.query.filter_by(message_reply_id=request.args.get("message_reply_id")).first()
-        if user["id"] == reply_to_delete.from_id:
+        if current_user["id"] == reply_to_delete.from_id:
             db.session.delete(reply_to_delete)
 
             for path in string_to_list(reply_to_delete.attachment_paths):
@@ -189,14 +189,14 @@ def delete_message_reply(user):
 
 @message_bp.route("/delete_message_from_user", methods=["POST"])
 @auth_required
-def delete_message_from_user(user):
+def delete_message_from_user(current_user):
     try:
         data = request.get_json()
         message = Message.query.filter_by(message_id=data["messageId"]).first()
 
-        if message.sender_id == user["id"]:
+        if message.sender_id == current_user["id"]:
             message.deleted_from_sender = True
-        elif message.receiver_id == user["id"]:
+        elif message.receiver_id == current_user["id"]:
             message.deleted_from_receiver = True
 
         db.session.commit()

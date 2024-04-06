@@ -11,7 +11,7 @@ comment_bp = Blueprint("comment_routes", __name__)
 
 @comment_bp.route("/add_comment_to_task", methods=["POST"])
 @auth_required
-def add_comment_to_task(user):
+def add_comment_to_task(current_user):
     try:
         data = request.get_json()
         validation = validate_comment(data["description"])
@@ -19,7 +19,7 @@ def add_comment_to_task(user):
         if validation["isValid"]:
             new_comment = TaskComment(
                 description=data["description"],
-                user_id=user["id"],
+                user_id=current_user["id"],
                 task_id=data["taskId"],
                 reply_id=int_list_to_string(data["replyId"]),
                 mentions_id=int_list_to_string(data["mentionsId"])
@@ -36,14 +36,14 @@ def add_comment_to_task(user):
 
 @comment_bp.route("/like_comment", methods=["POST"])
 @auth_required
-def like_comment(user):
+def like_comment(current_user):
     try:
         data = request.get_json()
         comment_to_like = TaskComment.query.filter_by(comment_id=data["commentId"]).first()
-        if user["id"] in string_to_int_list(comment_to_like.likes_id):
-            comment_to_like.likes_id = remove_item_from_stringed_list(comment_to_like.likes_id, user["id"])
+        if current_user["id"] in string_to_int_list(comment_to_like.likes_id):
+            comment_to_like.likes_id = remove_item_from_stringed_list(comment_to_like.likes_id, current_user["id"])
         else:
-            comment_to_like.likes_id = add_item_from_stringed_list(comment_to_like.likes_id, user["id"])
+            comment_to_like.likes_id = add_item_from_stringed_list(comment_to_like.likes_id, current_user["id"])
         db.session.commit()
         return jsonify({"message": "Success"}), 201
     except Exception as e:
@@ -53,10 +53,10 @@ def like_comment(user):
 
 @comment_bp.route("/delete_comment", methods=["DELETE"])
 @auth_required
-def delete_comment(user):
+def delete_comment(current_user):
     try:
         comment_to_delete = TaskComment.query.filter_by(comment_id=request.args.get("comment_id")).first()
-        if user["id"] == comment_to_delete.user_id:
+        if current_user["id"] == comment_to_delete.user_id:
             db.session.delete(comment_to_delete)
             db.session.commit()
             return jsonify({"message": "Success"}), 201

@@ -10,16 +10,16 @@ checklist_bp = Blueprint("checklist_routes", __name__)
 
 @checklist_bp.route("/add_checklist", methods=["POST"])
 @auth_required
-def add_checklist(user):
+def add_checklist(current_user):
     try:
         data = request.get_json()
         task = Task.query.filter_by(task_id=data["taskId"]).first()
-        validation = validate_checklist(data["description"], data["assignee"], user["id"], task.creator_id, task.assignee)
+        validation = validate_checklist(data["description"], data["assignee"], current_user["id"], task.creator_id, task.assignee)
 
         if validation["isValid"]:
             new_checklist = Checklist(
                 task_id=data["taskId"],
-                user_id=user["id"],
+                user_id=current_user["id"],
                 description=data["description"],
                 assignee=int_list_to_string(data["assignee"])
             )
@@ -35,11 +35,11 @@ def add_checklist(user):
 
 @checklist_bp.route("/toggle_checklist", methods=["POST"])
 @auth_required
-def toggle_checklist(user):
+def toggle_checklist(current_user):
     try:
         data = request.get_json()
         checklist_to_toggle = Checklist.query.filter_by(checklist_id=data["checklistId"]).first()
-        if user["id"] in string_to_int_list(checklist_to_toggle.assignee):
+        if current_user["id"] in string_to_int_list(checklist_to_toggle.assignee):
             checklist_to_toggle.is_checked = data["check"]
             db.session.commit()
             return jsonify({"message": "Success"}), 201
@@ -52,10 +52,10 @@ def toggle_checklist(user):
 
 @checklist_bp.route("/delete_checklist", methods=["DELETE"])
 @auth_required
-def delete_checklist(user):
+def delete_checklist(current_user):
     try:
         checklist_to_delete = Checklist.query.filter_by(checklist_id=request.args.get("checklist_id")).first()
-        if user["id"] == checklist_to_delete.user_id:
+        if current_user["id"] == checklist_to_delete.user_id:
             db.session.delete(checklist_to_delete)
             db.session.commit()
             return jsonify({"message": "Success"}), 201

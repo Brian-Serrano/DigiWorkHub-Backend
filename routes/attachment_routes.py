@@ -12,7 +12,7 @@ attachment_bp = Blueprint("attachment_routes", __name__)
 
 @attachment_bp.route("/upload_attachment", methods=["POST"])
 @auth_required
-def upload_attachment(user):
+def upload_attachment(current_user):
     file = request.files['file']
 
     if file and allowed_file(file.filename, ALLOWED_FILE_EXTENSIONS):
@@ -21,7 +21,7 @@ def upload_attachment(user):
             file.save(os.path.join("attachments", filename))
             new_attachment = Attachment(
                 task_id=int(request.form["taskId"]),
-                user_id=user["id"],
+                user_id=current_user["id"],
                 attachment_path="attachments/" + filename,
                 file_name=file.filename
             )
@@ -37,7 +37,7 @@ def upload_attachment(user):
 
 @attachment_bp.route("/download_attachment", methods=["GET"])
 @auth_required
-def download_attachment(user):
+def download_attachment(current_user):
     try:
         return send_from_directory("attachments", request.args.get("attachment_name"), as_attachment=True), 200
     except Exception as e:
@@ -46,10 +46,10 @@ def download_attachment(user):
 
 @attachment_bp.route("/delete_attachment", methods=["DELETE"])
 @auth_required
-def delete_attachment(user):
+def delete_attachment(current_user):
     try:
         attachment_to_delete = Attachment.query.filter_by(attachment_id=request.args.get("attachment_id")).first()
-        if user["id"] == attachment_to_delete.user_id:
+        if current_user["id"] == attachment_to_delete.user_id:
             db.session.delete(attachment_to_delete)
 
             if os.path.exists(attachment_to_delete.attachment_path):

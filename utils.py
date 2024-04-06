@@ -194,6 +194,19 @@ def validate_user_role(role):
     return {"isValid": True, "message": "Success"}
 
 
+def validate_password(current_password, new_password, confirm_password, current_password_2):
+    if not current_password or not new_password or not confirm_password:
+        return {"isValid": False, "message": "Fill up empty fields."}
+    if not bcrypt.checkpw(current_password.encode(), current_password_2.encode()):
+        return {"isValid": False, "message": "Current password do not match."}
+    if not re.search(PASSWORD_REGEX, new_password):
+        return {"isValid": False, "message": "Invalid New Password."}
+    if new_password != confirm_password:
+        return {"isValid": False, "message": "New password do not match."}
+
+    return {"isValid": True, "message": "Success"}
+
+
 def validate_reply(description, files):
     if not description or not 10 <= len(description) <= 500:
         return {"isValid": False, "message": "Description should be 10-500 characters"}
@@ -244,11 +257,16 @@ def map_comments(comment):
         "taskId": comment.task_id,
         "description": comment.description,
         "replyId": string_to_int_list(comment.reply_id),
-        "mentionsName": [User.query.filter_by(id=x).first().name for x in string_to_int_list(comment.mentions_id)],
+        "mentionsName": [get_name(x) for x in string_to_int_list(comment.mentions_id)],
         "user": map_user(comment.user_id),
         "sentDate": date_to_string(comment.date_sent),
         "likesId": string_to_int_list(comment.likes_id)
     }
+
+
+def get_name(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    return user.name if user else "UnknownUser"
 
 
 def map_subtasks(subtask):
@@ -320,8 +338,16 @@ def filename_secure(file, idx=""):
 
 def map_user(user_id):
     user = User.query.filter_by(id=user_id).first()
-    return {
-        "id": user.id,
-        "name": user.name,
-        "image": get_response_image(user.image_path)
-    }
+
+    if user:
+        return {
+            "id": user.id,
+            "name": user.name,
+            "image": get_response_image(user.image_path)
+        }
+    else:
+        return {
+            "id": user_id,
+            "name": "UnknownUser",
+            "image": get_response_image("images/deleted_user.png")
+        }

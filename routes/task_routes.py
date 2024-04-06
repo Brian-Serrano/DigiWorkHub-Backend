@@ -12,7 +12,7 @@ task_bp = Blueprint("task_routes", __name__)
 
 @task_bp.route("/add_task", methods=["POST"])
 @auth_required
-def add_task(user):
+def add_task(current_user):
     try:
         data = request.get_json()
         validation = validate_task(data["title"], data["description"], string_to_date(data["due"]), data["assignee"])
@@ -23,7 +23,7 @@ def add_task(user):
                 description=data["description"],
                 priority=data["priority"],
                 due=string_to_date(data["due"]),
-                creator_id=user["id"],
+                creator_id=current_user["id"],
                 type=data["type"],
                 assignee=int_list_to_string(data["assignee"])
             )
@@ -39,11 +39,11 @@ def add_task(user):
 
 @task_bp.route("/change_task_status", methods=["POST"])
 @auth_required
-def change_task_status(user):
+def change_task_status(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        if user["id"] in string_to_int_list(task_to_change.assignee):
+        if current_user["id"] in string_to_int_list(task_to_change.assignee):
             task_to_change.status = data["status"]
             db.session.commit()
             return jsonify({"message": "Success"}), 201
@@ -56,11 +56,11 @@ def change_task_status(user):
 
 @task_bp.route("/edit_assignees", methods=["POST"])
 @auth_required
-def edit_assignees(user):
+def edit_assignees(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        validation = validate_assignee(data["assignee"], user["id"], task_to_change.creator_id)
+        validation = validate_assignee(data["assignee"], current_user["id"], task_to_change.creator_id)
 
         if validation["isValid"]:
             task_to_change.assignee = int_list_to_string(data["assignee"])
@@ -75,11 +75,11 @@ def edit_assignees(user):
 
 @task_bp.route("/change_due_date", methods=["POST"])
 @auth_required
-def change_due_date(user):
+def change_due_date(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        validation = validate_due(string_to_date(data["due"]), user["id"], task_to_change.creator_id)
+        validation = validate_due(string_to_date(data["due"]), current_user["id"], task_to_change.creator_id)
 
         if validation["isValid"]:
             task_to_change.due = string_to_date(data["due"])
@@ -94,11 +94,11 @@ def change_due_date(user):
 
 @task_bp.route("/change_priority", methods=["POST"])
 @auth_required
-def change_priority(user):
+def change_priority(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        if task_to_change.creator_id == user["id"]:
+        if task_to_change.creator_id == current_user["id"]:
             task_to_change.priority = data["priority"]
             db.session.commit()
             return jsonify({"message": "Success"}), 201
@@ -111,11 +111,11 @@ def change_priority(user):
 
 @task_bp.route("/change_type", methods=["POST"])
 @auth_required
-def change_type(user):
+def change_type(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        if task_to_change.creator_id == user["id"]:
+        if task_to_change.creator_id == current_user["id"]:
             task_to_change.type = data["type"]
             db.session.commit()
             return jsonify({"message": "Success"}), 201
@@ -128,11 +128,11 @@ def change_type(user):
 
 @task_bp.route("/change_name", methods=["POST"])
 @auth_required
-def change_name(user):
+def change_name(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        validation = validate_name(data["title"], user["id"], task_to_change.creator_id)
+        validation = validate_name(data["title"], current_user["id"], task_to_change.creator_id)
 
         if validation["isValid"]:
             task_to_change.title = data["title"]
@@ -147,11 +147,11 @@ def change_name(user):
 
 @task_bp.route("/change_description", methods=["POST"])
 @auth_required
-def change_description(user):
+def change_description(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        validation = validate_description(data["description"], user["id"], task_to_change.creator_id)
+        validation = validate_description(data["description"], current_user["id"], task_to_change.creator_id)
         if validation["isValid"]:
             task_to_change.description = data["description"]
             db.session.commit()
@@ -165,11 +165,11 @@ def change_description(user):
 
 @task_bp.route("/delete_task", methods=["DELETE"])
 @auth_required
-def delete_task(user):
+def delete_task(current_user):
     try:
         task_id = request.args.get("task_id")
         task_to_delete = Task.query.filter_by(task_id=task_id).first()
-        if user["id"] == task_to_delete.creator_id:
+        if current_user["id"] == task_to_delete.creator_id:
             db.session.delete(task_to_delete)
             db.session.query(TaskComment).filter_by(task_id=task_id).delete()
             db.session.query(Subtask).filter_by(task_id=task_id).delete()
@@ -186,9 +186,9 @@ def delete_task(user):
 
 @task_bp.route("/get_tasks", methods=["GET"])
 @auth_required
-def get_tasks(user):
+def get_tasks(current_user):
     try:
-        tasks = Task.query.filter(Task.assignee.like(f"%{user['id']}%")).all()
+        tasks = Task.query.filter(Task.assignee.like(f"%{current_user['id']}%")).all()
         return jsonify([map_tasks(x) for x in tasks]), 200
     except Exception as e:
         return jsonify({"error": f"Unhandled exception: {e}"}), 500
@@ -196,7 +196,7 @@ def get_tasks(user):
 
 @task_bp.route("/get_task", methods=["GET"])
 @auth_required
-def get_task(user):
+def get_task(current_user):
     try:
         task_id = request.args.get("task_id")
         task = Task.query.filter_by(task_id=task_id).first()
@@ -228,9 +228,9 @@ def get_task(user):
 
 @task_bp.route("/get_created_tasks", methods=["GET"])
 @auth_required
-def get_created_tasks(user):
+def get_created_tasks(current_user):
     try:
-        tasks = Task.query.filter_by(creator_id=user["id"]).all()
+        tasks = Task.query.filter_by(creator_id=current_user["id"]).all()
         return jsonify([map_tasks(x) for x in tasks]), 200
     except Exception as e:
         return jsonify({"error": f"Unhandled exception: {e}"}), 500

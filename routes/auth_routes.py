@@ -38,8 +38,6 @@ def sign_up():
                 image_path="images/" + filename
             )
             db.session.add(user)
-            user = User.query.filter_by(name=data["name"], email=data["email"]).first()
-
             token = jwt.encode({"user_id": user.id, "exp": datetime.now() + timedelta(days=7)}, api.config['SECRET_KEY'], algorithm='HS256')
 
             db.session.commit()

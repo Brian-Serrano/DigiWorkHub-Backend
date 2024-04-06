@@ -17,16 +17,20 @@ def auth_required(f):
         
         try:
             data = jwt.decode(token, api.config['SECRET_KEY'], algorithms=['HS256'])
-            user_obj = User.query.filter_by(id=data["user_id"]).first()
-            user = {
-                "id": user_obj.id,
-                "name": user_obj.name,
-                "email": user_obj.email
+            user = User.query.filter_by(id=data["user_id"]).first()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 401
+
+            current_user = {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email
             }
         except Exception as e:
             return jsonify({"error": f"Invalid token! {e}"}), 401
 
-        return f(user, *args, **kwargs)
+        return f(current_user, *args, **kwargs)
     
     return decorator
 
