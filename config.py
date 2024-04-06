@@ -23,7 +23,7 @@ ALLOWED_FILE_EXTENSIONS = {"7z", "aac", "accdb", "accft", "adx", "ai", "aiff", "
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "bmp", "webp"}
 
 api = Flask(__name__, template_folder="templates")
-api.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///digiwork_hub.db"
+api.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DIGIWORKHUB_DB_URI")
 api.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 api.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 db = SQLAlchemy(api)
