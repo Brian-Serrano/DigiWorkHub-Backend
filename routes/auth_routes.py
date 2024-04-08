@@ -121,7 +121,7 @@ def change_password():
 
         if validation["isValid"]:
             user.password = bcrypt.hashpw(data["password"].encode(), SALT).decode()
-            user.code = ""
+            user.forgot_password_code = ""
             db.session.commit()
             return jsonify({"message": "Success"}), 201
         else:
