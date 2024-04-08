@@ -10,6 +10,7 @@ class User(db.Model):
     password = db.Column(db.String, nullable=False, default="test123")
     image_path = db.Column(db.String, nullable=False, default="images")
     role = db.Column(db.String, nullable=False, default="NA")
+    forgot_password_code = db.Column(db.String, nullable=False, default="")
 
 
 class Task(db.Model):

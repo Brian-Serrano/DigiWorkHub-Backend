@@ -1,6 +1,11 @@
 import os
+import re
+import smtplib
+import ssl
+import string
 from datetime import datetime, timedelta
 import random
+from email.mime.text import MIMEText
 
 import bcrypt
 import jwt
@@ -10,9 +15,9 @@ from PIL import ImageFont
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 
-from config import db, api, SALT
+from config import db, api, SALT, PASSWORD, PASSWORD_REGEX
 from db import User
-from utils import validate_signup, validate_login, get_response_image
+from utils import validate_signup, validate_login, get_response_image, validate_forgot_password
 
 auth_bp = Blueprint("auth_routes", __name__)
 
@@ -79,4 +84,49 @@ def login():
         else:
             return jsonify({"type": "Validation Error", "message": validation["message"]}), 400
     except Exception as e:
+        return jsonify({"error": f"Unhandled exception: {e}"}), 500
+
+
+@auth_bp.route("/forgot_password", methods=["POST"])
+def forgot_password():
+    try:
+        data = request.get_json()
+        code = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(8))
+        email_sender = "Brianserrano503@gmail.com"
+        email_receiver = data["email"]
+        msg = MIMEText(f'<p>Use this code to change your password: </p><h3 style="color:blue;">{code}</h3>', "html")
+        msg["Subject"] = "DigiWork Hub Forgot Password"
+        msg["From"] = email_sender
+        msg["To"] = email_receiver
+        context = ssl.create_default_context()
+
+        user = User.query.filter_by(email=data["email"]).first()
+        user.forgot_password_code = code
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as smtp:
+            smtp.login(email_sender, PASSWORD)
+            smtp.sendmail(email_sender, email_receiver, msg.as_string())
+            db.session.commit()
+            return jsonify({"message": "Success"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Unhandled exception: {e}"}), 500
+
+
+@auth_bp.route("/change_password", methods=["POST"])
+def change_password():
+    try:
+        data = request.get_json()
+        user = User.query.filter_by(email=data["email"]).first()
+        validation = validate_forgot_password(user, data["code"], data["password"], data["confirmPassword"])
+
+        if validation["isValid"]:
+            user.password = bcrypt.hashpw(data["password"].encode(), SALT).decode()
+            user.code = ""
+            db.session.commit()
+            return jsonify({"message": "Success"}), 201
+        else:
+            return jsonify({"type": "Validation Error", "message": validation["message"]}), 400
+    except Exception as e:
+        db.session.rollback()
         return jsonify({"error": f"Unhandled exception: {e}"}), 500

@@ -8,6 +8,7 @@ PASSWORD_REGEX = re.compile(os.getenv("PASSWORD_REGEX"))
 EMAIL_REGEX = re.compile(os.getenv("EMAIL_REGEX"))
 NAME_REGEX = re.compile(os.getenv("NAME_REGEX"))
 SALT = os.getenv("SALT").encode("utf-8")
+PASSWORD = os.getenv("PASSWORD")
 ALLOWED_FILE_EXTENSIONS = {"7z", "aac", "accdb", "accft", "adx", "ai", "aiff", "aifc", "amr", "amv", "avi", "avif",
                            "bmp", "blend", "cdf", "cdr", "cgm", "csv", "doc", "docx", "docm", "dot", "dotx", "dpx",
                            "drc", "dtd", "dwf", "dwg", "dxf", "email", "emf", "eml", "emz", "eot", "esd", "exp", "f4v",
@@ -25,5 +26,5 @@ ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "bmp", "webp"}
 api = Flask(__name__, template_folder="templates")
 api.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DIGIWORKHUB_DB_URI")
 api.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
-api.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+api.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 db = SQLAlchemy(api)

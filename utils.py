@@ -81,6 +81,15 @@ def validate_login(user, email, password):
     return {"isValid": True, "message": "User Logged In"}
 
 
+def validate_forgot_password(user, code, password, confirm_password):
+    if code != user.forgot_password_code:
+        return {"isValid": False, "message": "Invalid Code"}
+    if not re.search(PASSWORD_REGEX, password):
+        return {"isValid": False, "message": "Invalid Password"}
+    if password != confirm_password:
+        return {"isValid": False, "message": "Passwords do not match"}
+
+
 def validate_task(title, description, due, assignees):
     if not title or not description:
         return {"isValid": False, "message": "Name and description should not be empty"}
