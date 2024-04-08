@@ -1,5 +1,4 @@
 import os
-import re
 import smtplib
 import ssl
 import string
@@ -15,7 +14,7 @@ from PIL import ImageFont
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 
-from config import db, api, SALT, PASSWORD, PASSWORD_REGEX
+from config import db, api, SALT, PASSWORD
 from db import User
 from utils import validate_signup, validate_login, get_response_image, validate_forgot_password
 
@@ -43,9 +42,9 @@ def sign_up():
                 image_path="images/" + filename
             )
             db.session.add(user)
-            token = jwt.encode({"user_id": user.id, "exp": datetime.now() + timedelta(days=7)}, api.config['SECRET_KEY'], algorithm='HS256')
-
             db.session.commit()
+
+            token = jwt.encode({"user_id": user.id, "exp": datetime.now() + timedelta(days=7)}, api.config['SECRET_KEY'], algorithm='HS256')
             response = {
                 "message": "Success",
                 "token": token,
