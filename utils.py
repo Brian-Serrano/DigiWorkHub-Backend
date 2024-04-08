@@ -89,6 +89,8 @@ def validate_forgot_password(user, code, password, confirm_password):
     if password != confirm_password:
         return {"isValid": False, "message": "Passwords do not match"}
 
+    return {"isValid": True, "message": "Password changed successfully."}
+
 
 def validate_task(title, description, due, assignees):
     if not title or not description:
