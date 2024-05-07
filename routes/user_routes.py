@@ -93,6 +93,20 @@ def change_user_password(current_user):
         return jsonify({"error": f"Unhandled exception: {e}", "type": "error"}), 500
 
 
+@user_bp.route("/update_notifications_token", methods=["POST"])
+@auth_required
+def update_notifications_token(current_user):
+    try:
+        data = request.get_json()
+        user = User.query.filter_by(id=current_user["id"]).first()
+        user.push_notifications_token = data["token"]
+        db.session.commit()
+        return jsonify({"message": "Success"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Unhandled exception: {e}", "type": "error"}), 500
+
+
 @user_bp.route("/search_users", methods=["GET"])
 @auth_required
 def search_users(current_user):

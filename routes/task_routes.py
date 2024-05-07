@@ -5,7 +5,7 @@ from db import Task, TaskComment, Subtask, Checklist, Attachment
 from routes.auth_wrapper import auth_required
 from utils import validate_task, string_to_date, int_list_to_string, string_to_int_list, validate_assignee, \
     validate_due, validate_name, validate_description, map_tasks, map_comments, map_subtasks, map_checklists, \
-    map_attachments, date_to_string, map_user
+    map_attachments, date_to_string, map_user, send_notification_to_assignees
 
 task_bp = Blueprint("task_routes", __name__)
 
@@ -28,6 +28,13 @@ def add_task(current_user):
                 assignee=int_list_to_string(data["assignee"])
             )
             db.session.add(new_task)
+
+            send_notification_to_assignees(
+                "New Task Created",
+                current_user["name"] + " have assigned to you a new task.",
+                data["assignee"]
+            )
+
             db.session.commit()
             return jsonify(map_tasks(new_task)), 201
         else:
@@ -43,8 +50,16 @@ def change_task_status(current_user):
     try:
         data = request.get_json()
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
-        if current_user["id"] in string_to_int_list(task_to_change.assignee):
+        assignees = string_to_int_list(task_to_change.assignee)
+        if current_user["id"] in assignees:
             task_to_change.status = data["status"]
+
+            send_notification_to_assignees(
+                "Task Status Updated",
+                current_user["name"] + " changed status of task \"" + task_to_change.title + "\".",
+                [*assignees, task_to_change.creator_id]
+            )
+
             db.session.commit()
             return jsonify({"message": "Success"}), 201
         else:
@@ -64,6 +79,13 @@ def edit_assignees(current_user):
 
         if validation["isValid"]:
             task_to_change.assignee = int_list_to_string(data["assignee"])
+
+            send_notification_to_assignees(
+                "Task Assignees Updated",
+                current_user["name"] + " changed assignees of task \"" + task_to_change.title + "\".",
+                data["assignee"]
+            )
+
             db.session.commit()
             return jsonify({"message": validation["message"]}), 201
         else:
@@ -83,6 +105,13 @@ def change_due_date(current_user):
 
         if validation["isValid"]:
             task_to_change.due = string_to_date(data["due"])
+
+            send_notification_to_assignees(
+                "Task Due Date Updated",
+                current_user["name"] + " changed due date of task \"" + task_to_change.title + "\".",
+                string_to_int_list(task_to_change.assignee)
+            )
+
             db.session.commit()
             return jsonify({"message": validation["message"]}), 201
         else:
@@ -100,6 +129,13 @@ def change_priority(current_user):
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
         if task_to_change.creator_id == current_user["id"]:
             task_to_change.priority = data["priority"]
+
+            send_notification_to_assignees(
+                "Task Priority Updated",
+                current_user["name"] + " changed priority of task \"" + task_to_change.title + "\".",
+                string_to_int_list(task_to_change.assignee)
+            )
+
             db.session.commit()
             return jsonify({"message": "Success"}), 201
         else:
@@ -117,6 +153,13 @@ def change_type(current_user):
         task_to_change = Task.query.filter_by(task_id=data["taskId"]).first()
         if task_to_change.creator_id == current_user["id"]:
             task_to_change.type = data["type"]
+
+            send_notification_to_assignees(
+                "Task Type Updated",
+                current_user["name"] + " changed type of task \"" + task_to_change.title + "\".",
+                string_to_int_list(task_to_change.assignee)
+            )
+
             db.session.commit()
             return jsonify({"message": "Success"}), 201
         else:
@@ -136,6 +179,13 @@ def change_name(current_user):
 
         if validation["isValid"]:
             task_to_change.title = data["title"]
+
+            send_notification_to_assignees(
+                "Task Name Updated",
+                current_user["name"] + " changed name of task \"" + task_to_change.title + "\".",
+                string_to_int_list(task_to_change.assignee)
+            )
+
             db.session.commit()
             return jsonify({"message": "Success"}), 201
         else:
@@ -154,6 +204,13 @@ def change_description(current_user):
         validation = validate_description(data["description"], current_user["id"], task_to_change.creator_id)
         if validation["isValid"]:
             task_to_change.description = data["description"]
+
+            send_notification_to_assignees(
+                "Task Description Updated",
+                current_user["name"] + " changed description of task \"" + task_to_change.title + "\".",
+                string_to_int_list(task_to_change.assignee)
+            )
+
             db.session.commit()
             return jsonify({"message": "Success"}), 201
         else:
@@ -175,6 +232,13 @@ def delete_task(current_user):
             db.session.query(Subtask).filter_by(task_id=task_id).delete()
             db.session.query(Checklist).filter_by(task_id=task_id).delete()
             db.session.query(Attachment).filter_by(task_id=task_id).delete()
+
+            send_notification_to_assignees(
+                "Task Deleted",
+                current_user["name"] + " deleted task \"" + task_to_delete.title + "\".",
+                string_to_int_list(task_to_delete.assignee)
+            )
+
             db.session.commit()
             return jsonify({"message": "Success"}), 201
         else:

@@ -3,9 +3,9 @@ import os
 from flask import Blueprint, request, jsonify, send_from_directory
 
 from config import ALLOWED_FILE_EXTENSIONS, db
-from db import Attachment
+from db import Attachment, Task
 from routes.auth_wrapper import auth_required
-from utils import allowed_file, map_attachments, filename_secure
+from utils import allowed_file, map_attachments, filename_secure, send_notification_to_assignees, string_to_int_list
 
 attachment_bp = Blueprint("attachment_routes", __name__)
 
@@ -14,18 +14,27 @@ attachment_bp = Blueprint("attachment_routes", __name__)
 @auth_required
 def upload_attachment(current_user):
     file = request.files['file']
+    task_id = int(request.form["taskId"])
+    task = Task.query.filter_by(task_id=task_id).first()
 
     if file and allowed_file(file.filename, ALLOWED_FILE_EXTENSIONS):
         try:
             filename = filename_secure(file)
             file.save(os.path.join("attachments", filename))
             new_attachment = Attachment(
-                task_id=int(request.form["taskId"]),
+                task_id=task_id,
                 user_id=current_user["id"],
                 attachment_path="attachments/" + filename,
                 file_name=file.filename
             )
             db.session.add(new_attachment)
+
+            send_notification_to_assignees(
+                "Attachment",
+                current_user["name"] + " sent attachment.",
+                [*string_to_int_list(task.assignee), task.creator_id]
+            )
+
             db.session.commit()
             return jsonify(map_attachments(new_attachment)), 201
         except Exception as e:

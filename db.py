@@ -11,6 +11,7 @@ class User(db.Model):
     image_path = db.Column(db.String, nullable=False, default="images")
     role = db.Column(db.String, nullable=False, default="NA")
     forgot_password_code = db.Column(db.String, nullable=False, default="")
+    push_notifications_token = db.Column(db.String, nullable=False, default="")
 
 
 class Task(db.Model):

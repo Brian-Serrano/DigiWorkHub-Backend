@@ -39,7 +39,8 @@ def sign_up():
                 name=data["name"],
                 email=data["email"],
                 password=bcrypt.hashpw(data["password"].encode(), SALT).decode(),
-                image_path="images/" + filename
+                image_path="images/" + filename,
+                push_notifications_token=data["notificationToken"]
             )
             db.session.add(user)
             db.session.commit()
@@ -70,6 +71,7 @@ def login():
         validation = validate_login(user, data["email"], data["password"])
         if validation["isValid"]:
             token = jwt.encode({"user_id": user.id, "exp": datetime.now() + timedelta(days=7)}, api.config['SECRET_KEY'], algorithm='HS256')
+            user.push_notifications_token = data["notificationToken"]
             response = {
                 "message": "Success",
                 "token": token,
@@ -79,10 +81,12 @@ def login():
                 "password": data["password"],
                 "image": get_response_image(user.image_path)
             }
+            db.session.commit()
             return jsonify(response), 201
         else:
             return jsonify({"type": "Validation Error", "message": validation["message"]}), 400
     except Exception as e:
+        db.session.rollback()
         return jsonify({"error": f"Unhandled exception: {e}"}), 500
 
 
