@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify
 
 from config import db
-from db import TaskComment
+from db import TaskComment, Task
 from routes.auth_wrapper import auth_required
 from utils import validate_comment, int_list_to_string, map_comments, string_to_int_list, \
-    remove_item_from_stringed_list, add_item_from_stringed_list
+    remove_item_from_stringed_list, add_item_from_stringed_list, send_notification_to_assignees
 
 comment_bp = Blueprint("comment_routes", __name__)
 
@@ -15,6 +15,7 @@ def add_comment_to_task(current_user):
     try:
         data = request.get_json()
         validation = validate_comment(data["description"])
+        task = Task.query.filter_by(task_id=data["taskId"]).first()
 
         if validation["isValid"]:
             new_comment = TaskComment(
@@ -25,6 +26,13 @@ def add_comment_to_task(current_user):
                 mentions_id=int_list_to_string(data["mentionsId"])
             )
             db.session.add(new_comment)
+
+            send_notification_to_assignees(
+                "Sent Comment",
+                current_user["name"] + " have sent comment to task.",
+                [*string_to_int_list(task.assignee), task.creator_id]
+            )
+
             db.session.commit()
             return jsonify(map_comments(new_comment)), 201
         else:

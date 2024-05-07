@@ -8,7 +8,8 @@ from config import db
 from db import Message, MessageReply
 from routes.auth_wrapper import auth_required
 from utils import validate_message, list_to_string, map_replies, map_sent_messages, \
-    map_received_messages, date_to_string, map_user, string_to_list, filename_secure, validate_reply
+    map_received_messages, date_to_string, map_user, string_to_list, filename_secure, validate_reply, \
+    send_notification_to_assignees
 
 message_bp = Blueprint("message_routes", __name__)
 
@@ -39,6 +40,13 @@ def message_user(current_user):
                 file_names=list_to_string(file_names)
             )
             db.session.add(new_message)
+
+            send_notification_to_assignees(
+                "New Message",
+                current_user["name"] + " send you a message.",
+                [data["receiverId"]]
+            )
+
             db.session.commit()
             return jsonify(map_sent_messages(new_message)), 201
         else:
@@ -78,6 +86,13 @@ def reply_to_message(current_user):
             message.deleted_from_receiver = False
 
             db.session.add(new_reply)
+
+            send_notification_to_assignees(
+                "New Reply",
+                current_user["name"] + " replies to your message.",
+                [message.receiver_id if current_user["id"] == message.sender_id else message.sender_id]
+            )
+
             db.session.commit()
             return jsonify(map_replies(new_reply)), 201
         else:

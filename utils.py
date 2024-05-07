@@ -5,6 +5,7 @@ from datetime import datetime
 
 import bcrypt
 from PIL import Image
+from firebase_admin import messaging
 from werkzeug.utils import secure_filename
 
 from config import EMAIL_REGEX, PASSWORD_REGEX, NAME_REGEX, ALLOWED_FILE_EXTENSIONS
@@ -345,6 +346,18 @@ def allowed_file(filename, allowed_extensions):
 
 def filename_secure(file, idx=""):
     return secure_filename(datetime.now().strftime("%d_%m_%Y_%H_%M_%S") + idx + '.' + file.filename.rsplit('.', 1)[1])
+
+
+def send_notification_to_assignees(title, body, assignees_id):
+    for assignee in assignees_id:
+        user = User.query.filter_by(id=assignee).first()
+        if user:
+            notification = messaging.Message(
+                data={"title": title, "body": body},
+                android=messaging.AndroidConfig(priority="high"),
+                token=user.push_notifications_token
+            )
+            messaging.send(notification)
 
 
 def map_user(user_id):
